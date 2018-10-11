@@ -18,10 +18,13 @@ import java.text.SimpleDateFormat;
 
 public class MainActivity extends AppCompatActivity implements Play.OnPlayCallback {
 
-    Play mPlayer;
-    SurfaceView surfaceView;
-    TextView mTextView, mTextCurTime;
-    SeekBar mSeekBar;
+    private Play mPlayer;
+    private SurfaceView surfaceView;
+    private TextView mTextView, mTextCurTime;
+    private SeekBar mSeekBar;
+
+    private SeekBar mRateBar;
+    private TextView mRateView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +58,32 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
                 mPlayer.seekTo(seekBar.getProgress());
             }
         });
+
+        mRateBar = (SeekBar) findViewById(R.id.rate_bar);
+        mRateView = (TextView) findViewById(R.id.rate_text);
+        mRateBar.setMax(7);
+        mRateBar.setProgress(3);
+        mRateView.setText("1X");
+
+        mRateBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int i, boolean b) {
+
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                int i = seekBar.getProgress();
+                float rate = 0.25f * (i + 1);
+                mPlayer.setRate(rate);
+                mRateView.setText(rate + "X");
+            }
+        });
     }
 
     //    public static final String url = "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4";
@@ -78,12 +107,22 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mPlayer.play(url3);
     }
 
+    public static final String url4 = Environment.getExternalStorageDirectory().getPath() + "/test4.mp4";
+
+    public void player4(View view) {
+        mPlayer.play(url4);
+    }
+
     public void stop(View view) {
         mPlayer.stop();
     }
 
     public void pause(View view) {
         mPlayer.pause();
+    }
+
+    public void silence(View view) {
+        mPlayer.silence();
     }
 
     @Override

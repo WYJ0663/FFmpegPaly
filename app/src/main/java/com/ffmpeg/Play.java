@@ -125,6 +125,24 @@ public class Play implements SurfaceHolder.Callback {
         });
     }
 
+    public void silence() {
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                _silence();
+            }
+        });
+    }
+
+    public void setRate(final float rate) {
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                _rate(rate);
+            }
+        });
+    }
+
     public native int _play(String path);
 
     public native void _display(Surface surface);
@@ -143,6 +161,9 @@ public class Play implements SurfaceHolder.Callback {
 
     public native void _stepUp();//快进
 
+    public native void _silence();//静音
+
+    public native void _rate(float rate);
 
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
@@ -205,6 +226,7 @@ public class Play implements SurfaceHolder.Callback {
     public void setOnPlayCallback(OnPlayCallback onPlayCallback) {
         mOnPlayCallback = onPlayCallback;
     }
+
 
     /**
      * 时间单位为毫秒

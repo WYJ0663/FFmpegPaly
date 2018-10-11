@@ -17,6 +17,8 @@ extern "C" {
 #include "Log.h"
 #include <libavformat/avformat.h>
 
+#include "sonic/sonic.h"
+
 class FFmpegMusic {
 
 public:
@@ -42,6 +44,9 @@ public:
     int index;//流索引
     bool isPlay = false;//是否正在播放
     bool isPause = false;
+
+    bool isSilence=false;//静音
+
     pthread_t playId;//处理线程
     std::vector<AVPacket *> queue;//队列
     // std::queue<AVPacket*> queueNull;//空队列
@@ -69,6 +74,10 @@ public:
     SLVolumeItf bqPlayerVolume;
     SLPlayItf bqPlayerPlay;
     SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue;
+
+    float rate = 1;
+    sonicStream sonic;
+    short * out_rate_buffer ;
 };
 
 };

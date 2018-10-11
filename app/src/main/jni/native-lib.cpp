@@ -382,3 +382,23 @@ Java_com_ffmpeg_Play__1stepUp(JNIEnv *env, jobject instance) {
     //点击快进按钮
     seekTo(5);
 }
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_ffmpeg_Play__1silence(JNIEnv *env, jobject instance) {
+
+   if(checkIsPlay()){
+       if(ffmpegMusic->isSilence){
+           ffmpegMusic->isSilence = false;
+       } else{
+           ffmpegMusic->isSilence = true;
+       }
+   }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_ffmpeg_Play__1rate(JNIEnv *env, jobject instance, jfloat rate) {
+    if (checkIsPlay()){
+        ffmpegMusic->rate = rate;
+    }
+}

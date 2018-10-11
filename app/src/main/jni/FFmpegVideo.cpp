@@ -2,8 +2,6 @@
 // Created by Administrator on 2017/11/20.
 //
 
-
-
 #include "FFmpegVideo.h"
 
 static void (*video_call)(AVFrame *frame);

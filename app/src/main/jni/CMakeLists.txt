@@ -18,6 +18,23 @@ add_library( # Sets the name of the library.
 
         # Provides a relative path to your source file(s).
 
+#        SoundTouch/AAFilter.cpp
+#        SoundTouch/FIFOSampleBuffer.cpp
+#        SoundTouch/FIRFilter.cpp
+#        SoundTouch/cpu_detect_x86.cpp
+#        SoundTouch/sse_optimized.cpp
+##        SoundTouch/WavFile.cpp
+#        SoundTouch/RateTransposer.cpp
+#        SoundTouch/SoundTouch.cpp
+#        SoundTouch/InterpolateCubic.cpp
+#        SoundTouch/InterpolateLinear.cpp
+#        SoundTouch/InterpolateShannon.cpp
+#        SoundTouch/TDStretch.cpp
+#        SoundTouch/BPMDetect.cpp
+#        SoundTouch/PeakFinder.cpp
+
+        sonic/sonic.c
+
         FFmpegMusic.cpp
         FFmpegVideo.cpp
         native-lib.cpp
@@ -27,7 +44,15 @@ add_library(libffmpeg
         SHARED
         IMPORTED)
 set_target_properties(libffmpeg PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libffmpeg.so)
-include_directories(${CMAKE_SOURCE_DIR}/../cpp/include)
+
+#add_library(libsoundtouch
+#        SHARED
+#        IMPORTED)
+#set_target_properties(libsoundtouch PROPERTIES IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libsoundtouch.so)
+
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/../cpp/include
+     )
+
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
 # default, you only need to specify the name of the public NDK library
@@ -48,6 +73,7 @@ find_library( # Sets the name of the path variable.
 target_link_libraries( # Specifies the target library.
         native-lib
         libffmpeg
+#        libsoundtouch
         # Links the target library to the log library
         # included in the NDK.
         ${log-lib}
