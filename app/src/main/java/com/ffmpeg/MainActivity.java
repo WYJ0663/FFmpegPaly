@@ -1,6 +1,7 @@
 package com.ffmpeg;
 
 import android.annotation.SuppressLint;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -9,6 +10,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import com.example.ffmpeg.R;
@@ -25,6 +27,8 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
 
     private SeekBar mRateBar;
     private TextView mRateView;
+
+    private ImageView mImageView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,7 +67,7 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mRateView = (TextView) findViewById(R.id.rate_text);
         mRateBar.setMax(7);
         mRateBar.setProgress(3);
-        mRateView.setText("1X");
+        mRateView.setText("1.0X");
 
         mRateBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -84,6 +88,8 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
                 mRateView.setText(rate + "X");
             }
         });
+
+        mImageView = (ImageView) findViewById(R.id.image);
     }
 
     //    public static final String url = "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4";
@@ -157,8 +163,18 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mTextCurTime.setText(formatTime(sec));
     }
 
+    @Override
+    public void onGetCurrentImage(Bitmap bitmap) {
+        mImageView.setImageBitmap(bitmap);
+    }
+
     private String formatTime(long time) {
         SimpleDateFormat format = new SimpleDateFormat("mm:ss");
         return format.format(time);
     }
+
+    public void cut(View view) {
+        mPlayer.cut();
+    }
+
 }

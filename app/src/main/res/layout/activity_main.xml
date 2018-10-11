@@ -79,34 +79,45 @@
                 android:layout_height="wrap_content"
                 android:onClick="silence"/>
 
-        <LinearLayout
-                android:layout_width="match_parent"
+        <Button
+                android:text="cut"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-            <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="倍速"
-                    android:layout_marginLeft="15dp"/>
-
-            <SeekBar
-                    android:id="@+id/rate_bar"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:layout_weight="1"/>
-
-            <TextView
-                    android:id="@+id/rate_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="1.5X"
-                    android:layout_marginRight="15dp"/>
-
-        </LinearLayout>
+                android:onClick="cut"/>
 
     </com.ffmpeg.FlowLayout>
+
+    <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+        <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="倍速"
+                android:layout_marginLeft="15dp"/>
+
+        <SeekBar
+                android:id="@+id/rate_bar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_weight="1"/>
+
+        <TextView
+                android:id="@+id/rate_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="1.5X"
+                android:layout_marginRight="15dp"/>
+
+    </LinearLayout>
+
+    <ImageView
+            android:id="@+id/image"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"/>
 </LinearLayout>

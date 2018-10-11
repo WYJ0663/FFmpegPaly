@@ -34,6 +34,8 @@ jobject pInstance;
 bool isSize = false;
 double preClock;
 
+bool isCutImage = false;
+
 bool checkIsPlay() {
     return isPlay && NULL != ffmpegVideo && NULL != ffmpegMusic && ffmpegVideo->isPlay && ffmpegMusic->isPlay;
 }
@@ -88,17 +90,49 @@ void setCurrentTime(double duration) {
     JNIEnv *env;
     pJavaVM->AttachCurrentThread(&env, NULL);
 
-    jmethodID methodID = NULL;
-    if (NULL != env && NULL != pInstance) {
+    static jmethodID methodID = NULL;
+    if (NULL != env && NULL != pInstance && NULL == methodID) {
         jclass clazz = env->GetObjectClass(pInstance);
         methodID = env->GetMethodID(clazz, "setCurrentTime", "(I)V");
         env->DeleteLocalRef(clazz);
     }
 
     if (NULL != methodID && duration > 0) {
-        env->CallVoidMethod(pInstance, methodID, (jint)(duration * 1000));
+        env->CallVoidMethod(pInstance, methodID, (jint) (duration * 1000));
     } else {
         LOGE("methodID == null");
+    }
+}
+
+void setCurrentImage(AVFrame *frame) {
+    if (!isCutImage) {
+        return;
+    }
+    isCutImage = false;
+    LOGE("setCurrentImage isCutImage=%d",isCutImage);
+    JNIEnv *env;
+    pJavaVM->AttachCurrentThread(&env, NULL);
+
+    int w = ffmpegVideo->codec->width;
+    int h = ffmpegVideo->codec->height;
+    uint8_t *src = frame->data[0];
+
+    int size = w * h;
+    jintArray result = env->NewIntArray(size);
+    env->SetIntArrayRegion(result, 0, size, reinterpret_cast<const jint *>(src));
+
+    static jmethodID methodID = NULL;
+    if (NULL != env && NULL != pInstance && NULL == methodID) {
+        jclass clazz = env->GetObjectClass(pInstance);
+        methodID = env->GetMethodID(clazz, "setCurrentImage", "([III)V");
+        env->DeleteLocalRef(clazz);
+    }
+    LOGE("setCurrentImage w=%d",w);
+    if (NULL != methodID) {
+        LOGE("setCurrentImage CallVoidMethod");
+        env->CallVoidMethod(pInstance, methodID, result, w, h);
+    } else {
+        LOGE("setCurrentImage == null");
     }
 }
 
@@ -122,6 +156,7 @@ void call_video_play(AVFrame *frame) {
         memcpy(dst + i * dstStride, src + i * srcStride, srcStride);
     }
     ANativeWindow_unlockAndPost(window);
+    setCurrentImage(frame);
 }
 
 void call_music_play(double clock) {
@@ -191,7 +226,7 @@ void stop(JNIEnv *env) {//释放资源
 }*/
 //单位秒
 void seekTo(int mesc) {
-    if (!checkIsPlay()){
+    if (!checkIsPlay()) {
         return;
     }
 
@@ -241,7 +276,7 @@ void *begin(void *args) {
                 ANativeWindow_setBuffersGeometry(window, ffmpegVideo->codec->width,
                                                  ffmpegVideo->codec->height,
                                                  WINDOW_FORMAT_RGBA_8888);
-                changeSize(ffmpegVideo->codec->width,ffmpegVideo->codec->height);
+                changeSize(ffmpegVideo->codec->width, ffmpegVideo->codec->height);
             }
         }//如果是音频流
         else if (pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
@@ -386,19 +421,25 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_ffmpeg_Play__1silence(JNIEnv *env, jobject instance) {
 
-   if(checkIsPlay()){
-       if(ffmpegMusic->isSilence){
-           ffmpegMusic->isSilence = false;
-       } else{
-           ffmpegMusic->isSilence = true;
-       }
-   }
+    if (checkIsPlay()) {
+        if (ffmpegMusic->isSilence) {
+            ffmpegMusic->isSilence = false;
+        } else {
+            ffmpegMusic->isSilence = true;
+        }
+    }
 }
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_ffmpeg_Play__1rate(JNIEnv *env, jobject instance, jfloat rate) {
-    if (checkIsPlay()){
+    if (checkIsPlay()) {
         ffmpegMusic->rate = rate;
     }
+}extern "C"
+JNIEXPORT void JNICALL
+Java_com_ffmpeg_Play__1cut(JNIEnv *env, jobject instance) {
+
+    isCutImage = true;
+
 }

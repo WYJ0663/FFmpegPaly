@@ -1,5 +1,6 @@
 package com.ffmpeg;
 
+import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -143,6 +144,15 @@ public class Play implements SurfaceHolder.Callback {
         });
     }
 
+    public void cut() {
+        mHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                _cut();
+            }
+        });
+    }
+
     public native int _play(String path);
 
     public native void _display(Surface surface);
@@ -164,6 +174,8 @@ public class Play implements SurfaceHolder.Callback {
     public native void _silence();//静音
 
     public native void _rate(float rate);
+
+    public native void _cut();
 
     @Override
     public void surfaceCreated(SurfaceHolder surfaceHolder) {
@@ -237,5 +249,33 @@ public class Play implements SurfaceHolder.Callback {
         void onTotalTime(int sec);
 
         void onCurrentTime(int sec);
+
+        void onGetCurrentImage(Bitmap bitmap);
+    }
+
+    public void setCurrentImage(int[] resultPixes, int w, int h) {
+        for (int i = 0; i < resultPixes.length; i++) {
+            int c = resultPixes[i];
+//            resultPixes[i] = ((c & 0xffffff00) >> 8) | 0xff000000;
+//            resultPixes[i] = c & 0x00ffffff | 0xff000000; //A
+
+//            resultPixes[i] = c & 0xff00ffff| 0x00ff0000; //R
+
+//            resultPixes[i] = c & 0xffff00ff | 0x0000ff00; //G
+//
+//            resultPixes[i] = c & 0xffffff00 | 0x000000ff; //B
+
+            //视频颜色是ARGB，ARGB_4444的颜色的ABRG，需要交换一下R和B
+            int B = c & 0x000000ff;//B
+            int R = (c & 0x00ff0000) >> 16;//R
+            resultPixes[i] = c & 0xff00ff00 | (B << 16) | R;
+        }
+
+        Log.e("yijun", "setCurrentImage" + resultPixes.length + " w=" + w + " h=" + h);
+        Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_4444);
+        bitmap.setPixels(resultPixes, 0, w, 0, 0, w, h);
+        if (mOnPlayCallback != null) {
+            mOnPlayCallback.onGetCurrentImage(bitmap);
+        }
     }
 }
