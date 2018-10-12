@@ -163,9 +163,16 @@ public class MainActivity extends AppCompatActivity implements Play.OnPlayCallba
         mTextCurTime.setText(formatTime(sec));
     }
 
+    Bitmap mBitmap;
+
     @Override
     public void onGetCurrentImage(Bitmap bitmap) {
         mImageView.setImageBitmap(bitmap);
+        if (mBitmap != null && mBitmap.isRecycled()) {
+            mBitmap.recycle();
+            mBitmap = null;
+        }
+        mBitmap = bitmap;
     }
 
     private String formatTime(long time) {

@@ -37,7 +37,8 @@ add_library( # Sets the name of the library.
 
         FFmpegMusic.cpp
         FFmpegVideo.cpp
-        native-lib.cpp
+        Player.cpp
+        player_jni.cpp
         )
 
 add_library(libffmpeg

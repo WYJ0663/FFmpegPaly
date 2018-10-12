@@ -100,23 +100,19 @@ void *videoPlay(void *args) {
 
         LOGE("播放视频")
         video_call(rgb_frame);
-//        av_packet_unref(packet);
+        av_packet_unref(packet);
+//        av_packet_free()
 //        av_frame_unref(rgb_frame);
-//        av_frame_unref(frame);
+        av_frame_unref(frame);
     }
     LOGE("free packet");
-    av_free(packet);
+    av_packet_unref(packet);
     LOGE("free packet ok");
     LOGE("free packet");
     av_frame_free(&frame);
     av_frame_free(&rgb_frame);
     sws_freeContext(ffmpegVideo->swsContext);
-    size_t size = ffmpegVideo->queue.size();
-    for (int i = 0; i < size; ++i) {
-        AVPacket *pkt = ffmpegVideo->queue.front();
-        av_free(pkt);
-        ffmpegVideo->queue.erase(ffmpegVideo->queue.begin());
-    }
+
     LOGE("VIDEO EXIT");
     pthread_exit(0);
 }
@@ -128,6 +124,14 @@ FFmpegVideo::FFmpegVideo() {
 }
 
 FFmpegVideo::~FFmpegVideo() {
+    size_t size = queue.size();
+    for (int i = 0; i < size; ++i) {
+        AVPacket *pkt = queue.front();
+//        av_free(pkt);
+        av_packet_unref(pkt);
+        queue.erase(queue.begin());
+    }
+    queue.clear();
     pthread_cond_destroy(&cond);
     pthread_mutex_destroy(&mutex);
 }
@@ -165,7 +169,8 @@ int FFmpegVideo::get(AVPacket *avPacket) {
             //取成功了，弹出队列，销毁packet
             AVPacket *packet2 = queue.front();
             queue.erase(queue.begin());
-            av_free(packet2);
+            av_packet_unref(packet2);
+            av_packet_free(&packet2);
             break;
         } else {
             pthread_cond_wait(&cond, &mutex);

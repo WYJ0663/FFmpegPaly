@@ -81,47 +81,11 @@ public class Play implements SurfaceHolder.Callback {
         });
     }
 
-    public void getTotalTime() {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                _getTotalTime();
-            }
-        });
-    }
-
-    public void getCurrentPosition() {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                _getCurrentPosition();
-            }
-        });
-    }
-
     public void seekTo(final int msec) {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
                 _seekTo(msec);
-            }
-        });
-    }
-
-    public void stepBack() {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                _stepBack();
-            }
-        });
-    }
-
-    public void stepUp() {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                _stepUp();
             }
         });
     }
@@ -136,6 +100,7 @@ public class Play implements SurfaceHolder.Callback {
     }
 
     public void setRate(final float rate) {
+        Log.e("yijun","ratr "+ rate);
         mHandler.post(new Runnable() {
             @Override
             public void run() {
@@ -161,15 +126,8 @@ public class Play implements SurfaceHolder.Callback {
 
     public native void _pause();
 
-    public native int _getTotalTime();
-
-    public native double _getCurrentPosition();
-
     public native void _seekTo(int sec);
 
-    public native void _stepBack();//快退
-
-    public native void _stepUp();//快进
 
     public native void _silence();//静音
 
@@ -272,10 +230,15 @@ public class Play implements SurfaceHolder.Callback {
         }
 
         Log.e("yijun", "setCurrentImage" + resultPixes.length + " w=" + w + " h=" + h);
-        Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_4444);
+        final Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_4444);
         bitmap.setPixels(resultPixes, 0, w, 0, 0, w, h);
         if (mOnPlayCallback != null) {
-            mOnPlayCallback.onGetCurrentImage(bitmap);
+            mMainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    mOnPlayCallback.onGetCurrentImage(bitmap);
+                }
+            });
         }
     }
 }

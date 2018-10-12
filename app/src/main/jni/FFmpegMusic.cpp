@@ -18,7 +18,7 @@ int getSoundTouchData(FFmpegMusic *music, int size, int nb) {
     // 参数为采样率和声道数
     sonicSetSpeed(music->sonic, 1);
     sonicSetRate(music->sonic, music->rate);
-    LOGE("music->rate=%f",music->rate)
+    LOGE("music->rate=%f", music->rate)
 
     // 向流中写入pcm_buffer
     int ret = sonicWriteShortToStream(music->sonic, reinterpret_cast<short *>(music->out_buffer), nb);
@@ -103,7 +103,8 @@ int getPcm(FFmpegMusic *agrs) {
         }
     }
 
-    av_free(avPacket);
+    av_packet_unref(avPacket);
+
     av_frame_free(&avFrame);
 
     return size;
@@ -169,12 +170,16 @@ FFmpegMusic::~FFmpegMusic() {
     if (out_buffer) {
         free(out_buffer);
     }
+    if (out_rate_buffer) {
+        free(out_rate_buffer);
+    }
     for (int i = 0; i < queue.size(); ++i) {
         AVPacket *pkt = queue.front();
         queue.erase(queue.begin());
         LOGE("销毁音频帧%d", queue.size());
-        av_free(pkt);
+        av_packet_unref(pkt);
     }
+    queue.clear();
     pthread_cond_destroy(&cond);
     pthread_mutex_destroy(&mutex);
 }
@@ -217,13 +222,13 @@ int FFmpegMusic::get(AVPacket *avPacket) {
             //取成功了，弹出队列，销毁packet
             AVPacket *packet2 = queue.front();
             queue.erase(queue.begin());
-            av_free(packet2);
+            av_packet_unref(packet2);
+            av_packet_free(&packet2);
             break;
         } else {
             LOGE("音频执行wait")
             LOGE("ispause %d", isPause);
             pthread_cond_wait(&cond, &mutex);
-
         }
     }
     pthread_mutex_unlock(&mutex);
