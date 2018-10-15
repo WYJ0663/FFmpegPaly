@@ -159,7 +159,7 @@ void call_video_play(AVFrame *frame) {
     uint8_t *src = frame->data[0];
     int srcStride = frame->linesize[0];
     for (int i = 0; i < window_buffer.height; ++i) {
-        LOGE("call_video_play i=%d", i)
+//        LOGE("call_video_play i=%d", i)
         memcpy(dst + i * dstStride, src + i * srcStride, srcStride);
     }
     ANativeWindow_unlockAndPost(window);
@@ -178,20 +178,29 @@ void stop(JNIEnv *env) {//释放资源
     preClock = 0;
     if (player) {
         player->stop();
+        delete (player);
+        player = 0;
     }
 
     //jni接口
-    if (pInstance) {
-        env->DeleteGlobalRef(pInstance);
-    }
-
-    delete (player);
-    player = 0;
+//    if (pInstance) {
+//        env->DeleteGlobalRef(pInstance);
+//        pInstance = 0;
+//    }
 //    p_tid->s
 }
 
+
+int w = 0;
+int h = 0;
+
 void initWindow() {
     if (window && player && player->ffmpegVideo && player->ffmpegVideo->codec) {
+        if (w == player->ffmpegVideo->codec->width && h == player->ffmpegVideo->codec->height) {
+            return;
+        }
+        w = player->ffmpegVideo->codec->width;
+        h = player->ffmpegVideo->codec->height;
         ANativeWindow_setBuffersGeometry(window, player->ffmpegVideo->codec->width,
                                          player->ffmpegVideo->codec->height,
                                          WINDOW_FORMAT_RGBA_8888);
@@ -216,16 +225,19 @@ Java_com_ffmpeg_Play__1play(JNIEnv *env, jobject instance, jstring inputPath_) {
 
     stop(env);
 
-    env->GetJavaVM(&pJavaVM);
-    pInstance = env->NewGlobalRef(instance);
+    if (pJavaVM == NULL) {
+        env->GetJavaVM(&pJavaVM);
+    }
+    if (pInstance == NULL) {
+        pInstance = env->NewGlobalRef(instance);
+    }
+
     inputPath = env->GetStringUTFChars(inputPath_, 0);
 
     pthread_create(&p_tid, NULL, begin, NULL);//开启begin线程
 
     env->ReleaseStringUTFChars(inputPath_, inputPath);
 }
-
-
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -238,8 +250,8 @@ Java_com_ffmpeg_Play__1display(JNIEnv *env, jobject instance, jobject surface) {
     }
     window = ANativeWindow_fromSurface(env, surface);
     initWindow();
-
 }
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_ffmpeg_Play__1stop(JNIEnv *env, jobject instance) {
@@ -280,6 +292,7 @@ Java_com_ffmpeg_Play__1rate(JNIEnv *env, jobject instance, jfloat rate) {
         player->setRate(rate);
     }
 }
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_ffmpeg_Play__1cut(JNIEnv *env, jobject instance) {

@@ -75,6 +75,7 @@ void clear_queue( std::vector<AVPacket *> queue) {
         queue.erase(queue.begin());
     }
     queue.clear();
+    queue.shrink_to_fit();
 }
 
 //单位秒
@@ -109,25 +110,29 @@ void Player::play() {
     //找到视频流和音频流
     for (int i = 0; i < pFormatCtx->nb_streams; ++i) {
         //获取解码器
-        AVCodecContext *avCodecContext = pFormatCtx->streams[i]->codec;
-        AVCodec *avCodec = avcodec_find_decoder(avCodecContext->codec_id);
+        AVCodec *avCodec = avcodec_find_decoder(pFormatCtx->streams[i]->codecpar->codec_id);
+        AVCodecContext * codecContext = avcodec_alloc_context3(avCodec);
+        avcodec_parameters_to_context(codecContext, pFormatCtx->streams[i]->codecpar);
 
-        //copy一个解码器，
-        AVCodecContext *codecContext = avcodec_alloc_context3(avCodec);
-        avcodec_copy_context(codecContext, avCodecContext);
+//        AVCodecContext *avCodecContext = pFormatCtx->streams[i]->codec;
+//        AVCodec *avCodec = avcodec_find_decoder(avCodecContext->codec_id);
+//
+//        //copy一个解码器，
+//        AVCodecContext *codecContext = avcodec_alloc_context3(avCodec);
+//        avcodec_copy_context(codecContext, avCodecContext);
         if (avcodec_open2(codecContext, avCodec, NULL) < 0) {
             LOGE("打开失败")
             continue;
         }
         //如果是视频流
-        if (pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+        if (pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
             ffmpegVideo->index = i;
             ffmpegVideo->setAvCodecContext(codecContext);
             ffmpegVideo->time_base = pFormatCtx->streams[i]->time_base;
 
             set_window_buffers_geometry();
         }//如果是音频流
-        else if (pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) {
+        else if (pFormatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
             ffmpegMusic->index = i;
             ffmpegMusic->setAvCodecContext(codecContext);
             ffmpegMusic->time_base = pFormatCtx->streams[i]->time_base;
@@ -140,7 +145,7 @@ void Player::play() {
     isPlay = true;
     //seekTo(0);
     //解码packet,并压入队列中
-    packet = (AVPacket *) av_mallocz(sizeof(AVPacket));
+    packet = av_packet_alloc();
     //跳转到某一个特定的帧上面播放
     int ret;
     while (isPlay) {
@@ -155,7 +160,6 @@ void Player::play() {
                        packet->stream_index == ffmpegMusic->index) {
                 ffmpegMusic->put(packet);
             }
-            av_packet_unref(packet);
         } else if (ret == AVERROR_EOF) {
             // 读完了
             //读取完毕 但是不一定播放完毕
@@ -167,6 +171,8 @@ void Player::play() {
                 av_usleep(10000);
             }
         }
+        av_packet_unref(packet);
+        av_init_packet(packet);
     }
     //解码完过后可能还没有播放完
     isPlay = false;
@@ -179,6 +185,7 @@ void Player::play() {
     //释放
     av_packet_unref(packet);
     av_packet_free(&packet);
+    avformat_close_input(&pFormatCtx);
     avformat_free_context(pFormatCtx);
     pthread_exit(0);
 }

@@ -8,20 +8,15 @@
 
 static void (*music_call)(double clock);
 
-
-// 数据处理部分：
-// 首先要有一个音频数据 short* pcm_buffer,大小为 buffer_size
-// 还要有需要转换的速率 float speed
 // 设置流的速率
-int getSoundTouchData(FFmpegMusic *music, int size, int nb) {
-
-    // 参数为采样率和声道数
+int getSonicData(FFmpegMusic *music, int size, int nb) {
+    //参数为采样率和声道数
     sonicSetSpeed(music->sonic, 1);
     sonicSetRate(music->sonic, music->rate);
     LOGE("music->rate=%f", music->rate)
 
     // 向流中写入pcm_buffer
-    int ret = sonicWriteShortToStream(music->sonic, reinterpret_cast<short *>(music->out_buffer), nb);
+    int ret = sonicWriteShortToStream(music->sonic, (short *) (music->out_buffer), nb);
     // 计算处理后的点数
     int new_buffer_size = 0;
     if (ret) {
@@ -33,7 +28,6 @@ int getSoundTouchData(FFmpegMusic *music, int size, int nb) {
     return 0;
 }
 
-
 //播放线程
 void *MusicPlay(void *args) {
     FFmpegMusic *musicplay = (FFmpegMusic *) args;
@@ -42,35 +36,27 @@ void *MusicPlay(void *args) {
     pthread_exit(0);//退出线程
 }
 
-AVFrame *alloc_silence_frame(int channels, int samplerate, int format, int nb_samples) {
-    AVFrame *frame;
-    int32_t ret;
-    frame = av_frame_alloc();
-    if (!frame) {
-        return NULL;
-    }
+void set_silence_frame(AVFrame *frame) {
+//    int32_t ret;
 
-    frame->sample_rate = samplerate;
-    frame->format = format; /*默认的format:AV_SAMPLE_FMT_FLTP*/
-    frame->channel_layout = av_get_default_channel_layout(channels);
-    frame->channels = channels;
-    frame->nb_samples = nb_samples; /*默认的sample大小:1024*/
-    ret = av_frame_get_buffer(frame, 0);
-    if (ret < 0) {
-        av_frame_free(&frame);
-        return NULL;
-    }
+//    frame->sample_rate = samplerate;
+//    frame->format = format; /*默认的format:AV_SAMPLE_FMT_FLTP*/
+//    frame->channel_layout = av_get_default_channel_layout(channels);
+//    frame->channels = channels;
+//    frame->nb_samples = nb_samples; /*默认的sample大小:1024*/
+//    ret = av_frame_get_buffer(frame, 0);
+//    if (ret < 0) {
+//        return;
+//    }
 
     av_samples_set_silence(frame->data, 0, frame->nb_samples, frame->channels, (AVSampleFormat) frame->format);
-    return frame;
 }
 
 //得到pcm数据
 int getPcm(FFmpegMusic *agrs) {
-    AVPacket *avPacket = (AVPacket *) av_mallocz(sizeof(AVPacket));
+    AVPacket *avPacket = av_packet_alloc();
     AVFrame *avFrame = av_frame_alloc();
     int size;
-    int gotframe;
     LOGE("准备解码");
     while (agrs->isPlay) {
         size = 0;
@@ -80,31 +66,33 @@ int getPcm(FFmpegMusic *agrs) {
             agrs->clock = av_q2d(agrs->time_base) * avPacket->pts;
         }
         LOGE("解码");
-        avcodec_decode_audio4(agrs->codec, avFrame, &gotframe, avPacket);
-
-        if (gotframe) {
-
-            if (agrs->isSilence) {
-                avFrame = alloc_silence_frame(agrs->out_channer_nb, avFrame->sample_rate,
-                                              avFrame->format, avFrame->nb_samples);
-            }
-
-            int nb = swr_convert(agrs->swrContext, &agrs->out_buffer, 44100 * 2,
-                                 (const uint8_t **) avFrame->data, avFrame->nb_samples);
-
-            size = av_samples_get_buffer_size(NULL, agrs->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
-//            int len = nb * agrs->out_channer_nb * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
-//
-            LOGE("getPcm nb=%d,size=%d,out_channer_nb=%d,len=%d", nb, size, agrs->out_channer_nb);
-            nb = getSoundTouchData(agrs, size, nb);
-            size = av_samples_get_buffer_size(NULL, agrs->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
-//            LOGE("getPcm 2 nb=%d,size=%d,out_channer_nb=%d;", nb, size, agrs->out_channer_nb);
-            break;
+        avcodec_send_packet(agrs->codec, avPacket);
+        if (avcodec_receive_frame(agrs->codec, avFrame) != 0) {
+            continue;
         }
+//        avcodec_decode_audio4(agrs->codec, avFrame, &gotframe, avPacket);
+
+        if (agrs->isSilence) {
+            set_silence_frame(avFrame);
+        }
+
+        int nb = swr_convert(agrs->swrContext, &agrs->out_buffer, 44100 * 2,
+                             (const uint8_t **) avFrame->data, avFrame->nb_samples);
+
+        size = av_samples_get_buffer_size(NULL, agrs->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
+//            int len = nb * agrs->out_channer_nb * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16);
+        LOGE("getPcm nb=%d,size=%d,out_channer_nb=%d,len=%d", nb, size, agrs->out_channer_nb);
+
+        if (agrs->rate != 1) {
+            nb = getSonicData(agrs, size, nb);
+            size = av_samples_get_buffer_size(NULL, agrs->out_channer_nb, nb, AV_SAMPLE_FMT_S16, 1);
+        }
+        break;
     }
 
     av_packet_unref(avPacket);
-
+    av_packet_free(&avPacket);
+    av_frame_unref(avFrame);
     av_frame_free(&avFrame);
 
     return size;
@@ -125,7 +113,11 @@ void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
         if (music_call) {
             music_call(music->clock);
         }
-        (*bq)->Enqueue(bq, music->out_rate_buffer, datasize);
+        if (music->rate == 1) {
+            (*bq)->Enqueue(bq, music->out_buffer, datasize);
+        } else {
+            (*bq)->Enqueue(bq, music->out_rate_buffer, datasize);
+        }
         LOGE("播放 %d ", music->queue.size());
     }
 }
@@ -166,24 +158,6 @@ FFmpegMusic::FFmpegMusic() {
     pthread_cond_init(&cond, NULL);
 }
 
-FFmpegMusic::~FFmpegMusic() {
-    if (out_buffer) {
-        free(out_buffer);
-    }
-    if (out_rate_buffer) {
-        free(out_rate_buffer);
-    }
-    for (int i = 0; i < queue.size(); ++i) {
-        AVPacket *pkt = queue.front();
-        queue.erase(queue.begin());
-        LOGE("销毁音频帧%d", queue.size());
-        av_packet_unref(pkt);
-    }
-    queue.clear();
-    pthread_cond_destroy(&cond);
-    pthread_mutex_destroy(&mutex);
-}
-
 void FFmpegMusic::setAvCodecContext(AVCodecContext *avCodecContext) {
     codec = avCodecContext;
     createFFmpeg(this);
@@ -192,7 +166,7 @@ void FFmpegMusic::setAvCodecContext(AVCodecContext *avCodecContext) {
 //将packet压入队列,生产者
 int FFmpegMusic::put(AVPacket *avPacket) {
     LOGE("插入队列")
-    AVPacket *avPacket1 = (AVPacket *) av_mallocz(sizeof(AVPacket));
+    AVPacket *avPacket1 = av_packet_alloc();
     //克隆
     if (av_packet_ref(avPacket1, avPacket)) {
         //克隆失败
@@ -241,6 +215,30 @@ void FFmpegMusic::play() {
     pthread_create(&playId, NULL, MusicPlay, this);//开启begin线程
 }
 
+FFmpegMusic::~FFmpegMusic() {
+    if (out_buffer) {
+        av_free(out_buffer);
+    }
+    if (out_rate_buffer) {
+        av_free(out_rate_buffer);
+    }
+    for (int i = 0; i < queue.size(); ++i) {
+        AVPacket *pkt = queue.front();
+        queue.erase(queue.begin());
+        LOGE("销毁音频帧%d", queue.size());
+        av_packet_unref(pkt);
+        av_packet_free(&pkt);
+        pkt=0;
+    }
+    queue.clear();
+    queue.shrink_to_fit();
+//    (std::vector<AVPacket *>).swap(queue);
+    LOGE("帧空间=%d", queue.capacity());
+
+    pthread_cond_destroy(&cond);
+    pthread_mutex_destroy(&mutex);
+}
+
 void FFmpegMusic::stop() {
     LOGE("声音暂停");
     //因为可能卡在 deQueue
@@ -271,17 +269,21 @@ void FFmpegMusic::stop() {
         engineObject = 0;
         engineEngine = 0;
     }
-    if (swrContext)
+    if (swrContext) {
         swr_free(&swrContext);
+    }
     if (this->codec) {
-        if (avcodec_is_open(this->codec))
+        if (avcodec_is_open(this->codec)) {
             avcodec_close(this->codec);
+        }
         avcodec_free_context(&this->codec);
         this->codec = 0;
     }
     LOGE("AUDIO clear");
 
-    sonicDestroyStream(sonic);
+    if (sonic) {
+        sonicDestroyStream(sonic);
+    }
 }
 
 int FFmpegMusic::CreatePlayer() {
@@ -322,7 +324,6 @@ int FFmpegMusic::CreatePlayer() {
         (*outputMixEnvironmentalReverb)->SetEnvironmentalReverbProperties(
                 outputMixEnvironmentalReverb, &settings);
     }
-
 
     //======================
     SLDataLocator_AndroidSimpleBufferQueue android_queue = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE,

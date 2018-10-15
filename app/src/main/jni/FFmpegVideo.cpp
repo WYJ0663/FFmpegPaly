@@ -11,18 +11,17 @@ void *videoPlay(void *args) {
     //申请AVFrame
     AVFrame *frame = av_frame_alloc();//分配一个AVFrame结构体,AVFrame结构体一般用于存储原始数据，指向解码后的原始帧
     AVFrame *rgb_frame = av_frame_alloc();//分配一个AVFrame结构体，指向存放转换成rgb后的帧
-    AVPacket *packet = (AVPacket *) av_mallocz(sizeof(AVPacket));
+    AVPacket *packet = av_packet_alloc();
     //输出文件
     //FILE *fp = fopen(outputPath,"wb");
 
-
     //缓存区
-    uint8_t *out_buffer = (uint8_t *) av_mallocz(avpicture_get_size(AV_PIX_FMT_RGBA,
+    uint8_t *out_buffer = (uint8_t *) av_mallocz((size_t)av_image_get_buffer_size(AV_PIX_FMT_RGBA,
                                                                     ffmpegVideo->codec->width,
-                                                                    ffmpegVideo->codec->height));
+                                                                    ffmpegVideo->codec->height,1));
     //与缓存区相关联，设置rgb_frame缓存区
-    avpicture_fill((AVPicture *) rgb_frame, out_buffer, AV_PIX_FMT_RGBA, ffmpegVideo->codec->width,
-                   ffmpegVideo->codec->height);
+    av_image_fill_arrays( rgb_frame->data, rgb_frame->linesize, out_buffer, AV_PIX_FMT_RGBA, ffmpegVideo->codec->width,
+                   ffmpegVideo->codec->height,1);
 
 
     LOGE("转换成rgba格式")
@@ -53,10 +52,16 @@ void *videoPlay(void *args) {
     while (ffmpegVideo->isPlay) {
         ffmpegVideo->get(packet);
         LOGE("解码 %d", packet->stream_index)
-        avcodec_decode_video2(ffmpegVideo->codec, frame, &frameCount, packet);
-        if (!frameCount) {
+        // 解码
+        avcodec_send_packet(ffmpegVideo->codec, packet);
+        if (avcodec_receive_frame(ffmpegVideo->codec, frame) != 0) {
             continue;
         }
+
+//        avcodec_decode_video2(ffmpegVideo->codec, frame, &frameCount, packet);
+//        if (!frameCount) {
+//            continue;
+//        }
         //转换为rgb格式
         sws_scale(ffmpegVideo->swsContext, (const uint8_t *const *) frame->data, frame->linesize, 0,
                   frame->height, rgb_frame->data,
@@ -101,18 +106,18 @@ void *videoPlay(void *args) {
         LOGE("播放视频")
         video_call(rgb_frame);
         av_packet_unref(packet);
-//        av_packet_free()
 //        av_frame_unref(rgb_frame);
         av_frame_unref(frame);
     }
     LOGE("free packet");
     av_packet_unref(packet);
-    LOGE("free packet ok");
-    LOGE("free packet");
+    av_packet_free(&packet);
+    av_frame_unref(frame);
     av_frame_free(&frame);
+    av_frame_unref(rgb_frame);
     av_frame_free(&rgb_frame);
+    av_free(out_buffer);
     sws_freeContext(ffmpegVideo->swsContext);
-
     LOGE("VIDEO EXIT");
     pthread_exit(0);
 }
@@ -123,26 +128,13 @@ FFmpegVideo::FFmpegVideo() {
     pthread_cond_init(&cond, NULL);
 }
 
-FFmpegVideo::~FFmpegVideo() {
-    size_t size = queue.size();
-    for (int i = 0; i < size; ++i) {
-        AVPacket *pkt = queue.front();
-//        av_free(pkt);
-        av_packet_unref(pkt);
-        queue.erase(queue.begin());
-    }
-    queue.clear();
-    pthread_cond_destroy(&cond);
-    pthread_mutex_destroy(&mutex);
-}
-
 void FFmpegVideo::setAvCodecContext(AVCodecContext *avCodecContext) {
     codec = avCodecContext;
 }
 
 int FFmpegVideo::put(AVPacket *avPacket) {
     LOGE("插入队列 video")
-    AVPacket *avPacket1 = (AVPacket *) av_mallocz(sizeof(AVPacket));
+    AVPacket *avPacket1 = av_packet_alloc();
     //克隆
     if (av_packet_ref(avPacket1, avPacket)) {
         //克隆失败
@@ -171,6 +163,7 @@ int FFmpegVideo::get(AVPacket *avPacket) {
             queue.erase(queue.begin());
             av_packet_unref(packet2);
             av_packet_free(&packet2);
+            packet2 = 0;
             break;
         } else {
             pthread_cond_wait(&cond, &mutex);
@@ -190,8 +183,28 @@ void FFmpegVideo::play() {
     isPlay = true;
     isPause = true;
     pthread_create(&playId, NULL, videoPlay, this);//开启begin线程
-
 }
+
+FFmpegVideo::~FFmpegVideo() {
+    size_t size = queue.size();
+    for (int i = 0; i < size; ++i) {
+        AVPacket *pkt = queue.front();
+        queue.erase(queue.begin());
+        LOGE("销毁视频帧%d", queue.size());
+        av_packet_unref(pkt);
+        av_packet_free(&pkt);
+        pkt=0;
+//        LOGE("视频帧空间=%d", queue.capacity());
+    }
+    queue.clear();
+    queue.shrink_to_fit();
+//    (std::vector<AVPacket *>).swap(queue);
+    LOGE("视频帧空间=%d", queue.capacity());
+
+    pthread_cond_destroy(&cond);
+    pthread_mutex_destroy(&mutex);
+}
+
 
 void FFmpegVideo::stop() {
     LOGE("VIDEO stop");
@@ -240,7 +253,6 @@ double FFmpegVideo::synchronize(AVFrame *frame, double play) {
 
 void FFmpegVideo::setFFmepegMusic(FFmpegMusic *ffmpegMusic) {
     this->ffmpegMusic = ffmpegMusic;
-
 }
 
 void FFmpegVideo::setPlayCall(void (*call)(AVFrame *)) {
